@@ -1,0 +1,340 @@
+window.testsTreeJson = {
+  "//genesis": {
+    "//genesis/datasets": [
+      "//genesis/datasets:datasets_test"
+    ],
+    "//genesis/salesforce/account_id_updater": [
+      "//genesis/salesforce/account_id_updater:account_id_updater_test"
+    ],
+    "//genesis/salesforce/account_updater": [
+      "//genesis/salesforce/account_updater:account_updater_test"
+    ],
+    "//genesis/salesforce/generator": [
+      "//genesis/salesforce/generator:generator_test"
+    ],
+    "//genesis/salesforce/incremental_updates": [
+      "//genesis/salesforce/incremental_updates:merge_singer_test"
+    ]
+  },
+  "//matrix": {
+    "//matrix/apihandler/ops": [
+      "//matrix/apihandler/ops:compute_velocity_fiscal_weeks_op_test",
+      "//matrix/apihandler/ops:map_fiscal_period_op_test"
+    ],
+    "//matrix/apihandler/test": [
+      "//matrix/apihandler/test:apihandler_test",
+      "//matrix/apihandler/test:apihandler_unicluster_test"
+    ],
+    "//matrix/dealscoring/apihandler/test": [
+      "//matrix/dealscoring/apihandler/test:apihandler_test",
+      "//matrix/dealscoring/apihandler/test:apihandler_unicluster_test"
+    ],
+    "//matrix/dealscoring/matview/schema/test": [
+      "//matrix/dealscoring/matview/schema/test:ds_matview_schema_test"
+    ],
+    "//matrix/defaults": [
+      "//matrix/defaults:defaults_test"
+    ],
+    "//matrix/forecasting/apihandler/ops": [
+      "//matrix/forecasting/apihandler/ops:compute_deviations_op_test",
+      "//matrix/forecasting/apihandler/ops:get_across_reporting_period_forecasting_trends_op_test",
+      "//matrix/forecasting/apihandler/ops:get_human_forecast_op_test",
+      "//matrix/forecasting/apihandler/ops:get_in_reporting_period_forecasting_trends_op_test",
+      "//matrix/forecasting/apihandler/ops:get_reporting_period_forecast_op_test",
+      "//matrix/forecasting/apihandler/ops:set_human_forecast_op_test"
+    ],
+    "//matrix/forecasting/apihandler/test": [
+      "//matrix/forecasting/apihandler/test:forecasting_unicluster_test",
+      "//matrix/forecasting/apihandler/test:integration_tests"
+    ],
+    "//matrix/forecasting/matview/ops": [
+      "//matrix/forecasting/matview/ops:generate_forecast_category_vector_op_test",
+      "//matrix/forecasting/matview/ops:generate_monthly_forecast_op_test"
+    ],
+    "//matrix/forecasting/matview/schema": [
+      "//matrix/forecasting/matview/schema:forecasting_heatmap_schema_helpers_test"
+    ],
+    "//matrix/incremental": [
+      "//matrix/incremental:incremental_test"
+    ],
+    "//matrix/mcpproxy/httphandlers": [
+      "//matrix/mcpproxy/httphandlers:httphandlers_test"
+    ],
+    "//matrix/pipeline/apihandler/ops": [
+      "//matrix/pipeline/apihandler/ops:get_pipeline_creation_velocity_op_test",
+      "//matrix/pipeline/apihandler/ops:get_pipeline_heatmap_op_test",
+      "//matrix/pipeline/apihandler/ops:get_pipeline_targets_op_test",
+      "//matrix/pipeline/apihandler/ops:get_targeted_pipeline_trends_op_test",
+      "//matrix/pipeline/apihandler/ops:get_user_pipeline_targets_op_test",
+      "//matrix/pipeline/apihandler/ops:infer_creation_pipeline_goal_op_test"
+    ],
+    "//matrix/pipeline/matview/schema/test": [
+      "//matrix/pipeline/matview/schema/test:matview_schema_test"
+    ],
+    "//matrix/pipeline/matview/test": [
+      "//matrix/pipeline/matview/test:generate_pipeline_heat_map_op_test"
+    ],
+    "//matrix/schema": [
+      "//matrix/schema:schema_test"
+    ],
+    "//matrix/transform": [
+      "//matrix/transform:transform_test"
+    ]
+  },
+  "//morpheus": {
+    "//morpheus/apihandler/test": [
+      "//morpheus/apihandler/test:apihandler_test",
+      "//morpheus/apihandler/test:apihandler_test_salesforce",
+      "//morpheus/apihandler/test:apihandler_unicluster_test",
+      "//morpheus/apihandler/test:apihandler_unicluster_test_salesforce"
+    ]
+  },
+  "//mysterio": {
+    "//mysterio/apihandler": [
+      "//mysterio/apihandler:apihandler_test"
+    ],
+    "//mysterio/mockapi": [
+      "//mysterio/mockapi:mock_mysterioapi_test"
+    ],
+    "//mysterio/mysteriotest": [
+      "//mysterio/mysteriotest:mysteriotest"
+    ]
+  },
+  "//openutil": {
+    "//openutil/base/aes": [
+      "//openutil/base/aes:aes_test"
+    ],
+    "//openutil/base/disjointrangeset": [
+      "//openutil/base/disjointrangeset:disjointrangeset_test"
+    ],
+    "//openutil/base/jsonutil": [
+      "//openutil/base/jsonutil:jsonutil_test"
+    ],
+    "//openutil/base/logger": [
+      "//openutil/base/logger:logger_test"
+    ],
+    "//openutil/base/lrucache": [
+      "//openutil/base/lrucache:lrucache_test"
+    ],
+    "//openutil/base/slidingwindow": [
+      "//openutil/base/slidingwindow:histogram_test",
+      "//openutil/base/slidingwindow:stat_test"
+    ],
+    "//openutil/base/string": [
+      "//openutil/base/string:string_test"
+    ],
+    "//openutil/concurrency/idlocker": [
+      "//openutil/concurrency/idlocker:idlocker_test"
+    ],
+    "//openutil/errorproto": [
+      "//openutil/errorproto:errorproto_test"
+    ],
+    "//openutil/misc/memtracer": [
+      "//openutil/misc/memtracer:memtracer_test"
+    ],
+    "//openutil/misc/op": [
+      "//openutil/misc/op:op_test",
+      "//openutil/misc/op:opidissuer_test",
+      "//openutil/misc/op:parallel_subop_executor_test"
+    ],
+    "//openutil/misc/program": [
+      "//openutil/misc/program:program_test"
+    ],
+    "//openutil/net/grpcclient": [
+      "//openutil/net/grpcclient:grpcclient_test"
+    ],
+    "//openutil/net/grpcinterceptor": [
+      "//openutil/net/grpcinterceptor:grpcinterceptor_test"
+    ],
+    "//openutil/net/grpcserver": [
+      "//openutil/net/grpcserver:grpcserver_test"
+    ],
+    "//openutil/net/httpclient": [
+      "//openutil/net/httpclient:httpclient_test"
+    ],
+    "//openutil/net/httpserver": [
+      "//openutil/net/httpserver:httpserver_py_test",
+      "//openutil/net/httpserver:httpserver_test"
+    ],
+    "//openutil/net/mcpclient": [
+      "//openutil/net/mcpclient:mcpclient_test"
+    ],
+    "//openutil/net/mcpserver": [
+      "//openutil/net/mcpserver:mcpserver_test"
+    ],
+    "//openutil/net/reverseproxy": [
+      "//openutil/net/reverseproxy:http2grpc_test",
+      "//openutil/net/reverseproxy:http2http_test",
+      "//openutil/net/reverseproxy:reverseproxy_py_test"
+    ],
+    "//openutil/net/tls": [
+      "//openutil/net/tls:tls_test",
+      "//openutil/net/tls:tls_test_py"
+    ],
+    "//openutil/storage/embeddedfile": [
+      "//openutil/storage/embeddedfile:embeddedfile_test"
+    ]
+  },
+  "//platform": {
+    "//platform/gcp/gcpinfratest": [
+      "//platform/gcp/gcpinfratest:gcpinfratest"
+    ],
+    "//platform/platform-cli/actions": [
+      "//platform/platform-cli/actions:actions_test"
+    ],
+    "//platform/platypus/apihandler/ops": [
+      "//platform/platypus/apihandler/ops:ops_test"
+    ],
+    "//platform/platypus/apihandler/test": [
+      "//platform/platypus/apihandler/test:apihandler_unicluster_test",
+      "//platform/platypus/apihandler/test:multidatastoretests",
+      "//platform/platypus/apihandler/test:pgadmintests"
+    ],
+    "//platform/platypus/ui": [
+      "//platform/platypus/ui:build_smoke_test",
+      "//platform/platypus/ui:eslint",
+      "//platform/platypus/ui:vitest"
+    ]
+  },
+  "//sage": {
+    "//sage/apihandler/ops": [
+      "//sage/apihandler/ops:agent_workflow_op_test",
+      "//sage/apihandler/ops:pixie_chat_op_test"
+    ],
+    "//sage/apihandler/test": [
+      "//sage/apihandler/test:apihandler_test",
+      "//sage/apihandler/test:apihandler_unicluster_test"
+    ],
+    "//sage/ui": [
+      "//sage/ui:eslint",
+      "//sage/ui:vitest"
+    ]
+  },
+  "//skill": {
+    "//skill/configuration/ui": [
+      "//skill/configuration/ui:build_smoke_test",
+      "//skill/configuration/ui:eslint",
+      "//skill/configuration/ui:vitest"
+    ],
+    "//skill/dealscoring/ui": [
+      "//skill/dealscoring/ui:build_smoke_test",
+      "//skill/dealscoring/ui:eslint",
+      "//skill/dealscoring/ui:vitest"
+    ],
+    "//skill/forecast/ui": [
+      "//skill/forecast/ui:build_smoke_test",
+      "//skill/forecast/ui:eslint",
+      "//skill/forecast/ui:vitest"
+    ],
+    "//skill/pipeline/ui": [
+      "//skill/pipeline/ui:build_smoke_test",
+      "//skill/pipeline/ui:cypress",
+      "//skill/pipeline/ui:eslint",
+      "//skill/pipeline/ui:vitest"
+    ]
+  },
+  "//spectrum": {
+    "//spectrum": [
+      "//spectrum:spectrum_test"
+    ],
+    "//spectrum/app-core": [
+      "//spectrum/app-core:eslint",
+      "//spectrum/app-core:vitest"
+    ],
+    "//spectrum/components": [
+      "//spectrum/components:eslint",
+      "//spectrum/components:vitest"
+    ],
+    "//spectrum/dashboard": [
+      "//spectrum/dashboard:dashboard_test"
+    ],
+    "//spectrum/dashboard/ui": [
+      "//spectrum/dashboard/ui:eslint",
+      "//spectrum/dashboard/ui:vitest"
+    ],
+    "//spectrum/host-app": [
+      "//spectrum/host-app:build_smoke_test",
+      "//spectrum/host-app:eslint",
+      "//spectrum/host-app:vitest"
+    ],
+    "//spectrum/test": [
+      "//spectrum/test:spectrumtest",
+      "//spectrum/test:spectrumtest_auth",
+      "//spectrum/test:spectrumtest_binary"
+    ],
+    "//spectrum/widget-core": [
+      "//spectrum/widget-core:widget_core_test"
+    ],
+    "//spectrum/widget-core/ui": [
+      "//spectrum/widget-core/ui:eslint",
+      "//spectrum/widget-core/ui:vitest"
+    ],
+    "//spectrum/widgets/ui": [
+      "//spectrum/widgets/ui:eslint",
+      "//spectrum/widgets/ui:vitest"
+    ]
+  },
+  "//synapse": {
+    "//synapse/apihandler/test": [
+      "//synapse/apihandler/test:apihandler_test",
+      "//synapse/apihandler/test:apihandler_unicluster_test"
+    ],
+    "//synapse/history": [
+      "//synapse/history:history_test"
+    ],
+    "//synapse/history/apihandler/test": [
+      "//synapse/history/apihandler/test:apihandler_test",
+      "//synapse/history/apihandler/test:apihandler_unicluster_test"
+    ],
+    "//synapse/llm": [
+      "//synapse/llm:llm_caller_test",
+      "//synapse/llm:llm_test"
+    ],
+    "//synapse/tools/apihandler/test": [
+      "//synapse/tools/apihandler/test:apihandler_test",
+      "//synapse/tools/apihandler/test:apihandler_unicluster_test"
+    ],
+    "//synapse/tools/util": [
+      "//synapse/tools/util:util_test"
+    ]
+  },
+  "//util": {
+    "//util/auth": [
+      "//util/auth:auth_test"
+    ],
+    "//util/auth/metadata": [
+      "//util/auth/metadata:metadata_test"
+    ],
+    "//util/auth/tests": [
+      "//util/auth/tests:descope_test"
+    ],
+    "//util/openai": [
+      "//util/openai:openai_test"
+    ]
+  },
+  "//zion": {
+    "//zion/apihandler/ops": [
+      "//zion/apihandler/ops:ops_test"
+    ],
+    "//zion/apihandler/test": [
+      "//zion/apihandler/test:apihandler_test",
+      "//zion/apihandler/test:apihandler_unicluster_test",
+      "//zion/apihandler/test:atlas_apihandler_test"
+    ],
+    "//zion/common": [
+      "//zion/common:atlas_admin_test",
+      "//zion/common:atlas_error_parser_test",
+      "//zion/common:atlas_sdk_error_parser_test",
+      "//zion/common:mongo_admin_test",
+      "//zion/common:mongo_error_parser_test",
+      "//zion/common:mongo_utils_test",
+      "//zion/common:zion_util_test"
+    ],
+    "//zion/gc/test": [
+      "//zion/gc/test:gc_test"
+    ],
+    "//zion/mockapi": [
+      "//zion/mockapi:mock_zionapi_client_test"
+    ]
+  }
+};

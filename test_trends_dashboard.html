@@ -73,6 +73,7 @@ the test cases in the tests.csv file.
 
     <!-- Load test tree data from JavaScript file (works with file:// protocol) -->
     <script src="tests_tree.js" onerror="console.error('Failed to load tests_tree.js. Please ensure the file exists in the same directory.')"></script>
+    <script src="suites_tree.js" onerror="console.error('Failed to load suites_tree.js. Please ensure the file exists in the same directory.')"></script>
 
     <script>
     // =================================================================================
@@ -259,7 +260,13 @@ the test cases in the tests.csv file.
             'spectrum': 'Spectrum Team',
             'synapse': 'Synapse Team',
             'util': 'Platform Team',
-            'zion': 'Zion Team'
+            'zion': 'Zion Team',
+            // Suite names
+            'smoke tests': 'QA Team',
+            'matrix tests': 'Matrix Team',
+            'p0 tests': 'Platform Team',
+            'p1 tests': 'Platform Team',
+            'p2 tests': 'Platform Team'
         };
         return owners[areaName.toLowerCase()] || 'Unknown Team';
     }
@@ -269,16 +276,30 @@ the test cases in the tests.csv file.
         if (areaName === 'openutil' || areaName === 'platform' || areaName === 'util') {
             return 'infrastructure';
         }
+        // Suite names are treated as test suites
+        if (areaName.toLowerCase().endsWith(' tests')) {
+            return 'test suite';
+        }
         return 'microservice';
     }
     
-    function buildMasterDataFromJSON() {
-        if (!testsTreeJson) {
-            throw new Error('testsTreeJson is not loaded. Please ensure tests_tree.json is loaded before building master data.');
+    function buildMasterDataFromJSON(viewBy = 'Area') {
+        let sourceJson;
+        if (viewBy === 'Suite') {
+            if (!window.suitesTreeJson) {
+                throw new Error('suitesTreeJson is not loaded. Please ensure suites_tree.js is loaded before building master data.');
+            }
+            sourceJson = window.suitesTreeJson;
+        } else {
+            if (!testsTreeJson) {
+                throw new Error('testsTreeJson is not loaded. Please ensure tests_tree.json is loaded before building master data.');
+            }
+            sourceJson = testsTreeJson;
         }
-        const areas = Object.keys(testsTreeJson).map(areaPath => {
-            const bundles = Object.keys(testsTreeJson[areaPath]).map(bundlePath => {
-                const testCases = testsTreeJson[areaPath][bundlePath];
+        
+        const areas = Object.keys(sourceJson).map(areaPath => {
+            const bundles = Object.keys(sourceJson[areaPath]).map(bundlePath => {
+                const testCases = sourceJson[areaPath][bundlePath];
                 const totalTests = testCases.length;
                 
                 // Generate random fail rate between 0.02 and 0.25
@@ -464,6 +485,39 @@ the test cases in the tests.csv file.
         const relevantDays = testCase.dailyHistory.filter(day => {
             if (!day || day.total === 0) return false;
             return isDateInRange(day.date, state.startDate, state.endDate);
+        });
+        if (relevantDays.length === 0) return 100;
+        const totalPassed = relevantDays.reduce((sum, day) => sum + day.passed, 0);
+        const totalTests = relevantDays.reduce((sum, day) => sum + day.total, 0);
+        return totalTests > 0 ? 
+            parseFloat(((totalPassed / totalTests) * 100).toFixed(1)) : 100;
+    }
+    
+    function calculateAreaRollingPercent(areaAggregates, days) {
+        const relevantDays = areaAggregates.daily.slice(-days).filter(day => {
+            return day && day.total > 0;
+        });
+        if (relevantDays.length === 0) return 100;
+        const totalPassed = relevantDays.reduce((sum, day) => sum + day.passed, 0);
+        const totalTests = relevantDays.reduce((sum, day) => sum + day.total, 0);
+        return totalTests > 0 ? 
+            parseFloat(((totalPassed / totalTests) * 100).toFixed(1)) : 100;
+    }
+    
+    function calculateBundleRollingPercent(bundle, days) {
+        const relevantDays = bundle.daily.slice(-days).filter(run => {
+            return run && run.total > 0;
+        });
+        if (relevantDays.length === 0) return 100;
+        const totalPassed = relevantDays.reduce((sum, day) => sum + day.passed, 0);
+        const totalTests = relevantDays.reduce((sum, day) => sum + day.total, 0);
+        return totalTests > 0 ? 
+            parseFloat(((totalPassed / totalTests) * 100).toFixed(1)) : 100;
+    }
+    
+    function calculateTestCaseRollingPercent(testCase, days) {
+        const relevantDays = testCase.dailyHistory.slice(-days).filter(day => {
+            return day && day.total > 0;
         });
         if (relevantDays.length === 0) return 100;
         const totalPassed = relevantDays.reduce((sum, day) => sum + day.passed, 0);
@@ -839,13 +893,24 @@ the test cases in the tests.csv file.
                     <section id="tests-section">
                         <div class="mb-4">
                             <h2 class="text-xl font-bold text-slate-900">Tests</h2>
-                            <p class="text-sm text-slate-500 mt-1">Test trends across bundles and areas</p>
                         </div>
                         <div class="mb-4">
-                            <div class="flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                                <input type="text" id="text-filter" oninput="handleFilterChange(event)" name="textFilter" placeholder="Filter test cases..." value="${state.textFilter}" class="min-w-[200px] w-64 pl-2 pr-8 py-2 text-base border border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm" />
-                            </div>
+                    <div class="mb-2">
+                        <span class="text-xs font-medium text-slate-600 uppercase tracking-wider">View By</span>
+                    </div>
+                    <p class="mb-2 text-sm text-slate-500">Select to change view by Area or by Suite.</p>
+                    <div class="flex items-center justify-between gap-4">
+                        <div class="flex items-center">
+                            <select id="view-by" onchange="handleFilterChange(event)" name="viewBy" class="w-full pl-2 pr-8 py-2 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm">
+                                <option value="Area" ${state.viewBy === 'Area' ? 'selected' : ''}>Area</option>
+                                <option value="Suite" ${state.viewBy === 'Suite' ? 'selected' : ''}>Suite</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                            <input type="text" id="text-filter" oninput="handleFilterChange(event)" name="textFilter" placeholder="Filter test cases..." value="${state.textFilter}" class="min-w-[200px] w-64 pl-2 pr-8 py-2 text-base border border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm" />
+                        </div>
+                    </div>
                         </div>
                         <div class="text-center py-16 px-6 bg-white border border-slate-200 rounded-lg shadow-sm">
                             <h3 class="text-lg font-semibold text-slate-700">No Test Data Available</h3>
@@ -892,6 +957,8 @@ the test cases in the tests.csv file.
             }).join('');
 
             // 1. The Area Row (Aggregate)
+            const area7D = calculateAreaRollingPercent(areaAggregates, 7);
+            const area30D = calculateAreaRollingPercent(areaAggregates, 30);
             const areaRow = `
                 <tr role="row" class="area-row bg-slate-100 border-b border-slate-300 hover:bg-slate-200/70 transition-colors duration-150">
                     <th scope="row" class="sticky-col py-3 px-4 font-semibold text-slate-800 whitespace-nowrap border-r border-slate-200 text-left">
@@ -901,6 +968,8 @@ the test cases in the tests.csv file.
                     </th>
                     ${areaDailyCells}
                     <td role="gridcell" class="py-3 px-3 text-sm font-semibold text-center whitespace-nowrap ${getPercentColor(areaAggregates.summaryPercent)}">${areaAggregates.summaryPercent}%</td>
+                    <td role="gridcell" class="py-3 px-3 text-sm font-semibold text-center whitespace-nowrap ${getPercentColor(area7D)}">${area7D}%</td>
+                    <td role="gridcell" class="py-3 px-3 text-sm font-semibold text-center whitespace-nowrap ${getPercentColor(area30D)}">${area30D}%</td>
                 </tr>`;
 
             let bundleRows = '';
@@ -931,6 +1000,8 @@ the test cases in the tests.csv file.
                     }).join('');
                     
                     // 2. The Bundle Row
+                    const bundle7D = calculateBundleRollingPercent(bundle, 7);
+                    const bundle30D = calculateBundleRollingPercent(bundle, 30);
                     const bundleRow = `
                         <tr role="row" class="bundle-row bg-white hover:bg-slate-50/70 transition-colors duration-150 border-b border-slate-200 group">
                             <th scope="row" class="sticky-col py-3 px-4 pl-6 text-sm text-slate-700 whitespace-nowrap border-r border-slate-200 text-left">
@@ -940,6 +1011,8 @@ the test cases in the tests.csv file.
                             </th>
                             ${dailyCells}
                             <td role="gridcell" class="py-3 px-3 text-sm font-semibold text-center whitespace-nowrap ${getPercentColor(calculateBundleSummaryPercent(bundle))}">${calculateBundleSummaryPercent(bundle)}%</td>
+                            <td role="gridcell" class="py-3 px-3 text-sm font-semibold text-center whitespace-nowrap ${getPercentColor(bundle7D)}">${bundle7D}%</td>
+                            <td role="gridcell" class="py-3 px-3 text-sm font-semibold text-center whitespace-nowrap ${getPercentColor(bundle30D)}">${bundle30D}%</td>
                         </tr>`;
 
                     let testCaseRows = '';
@@ -965,6 +1038,8 @@ the test cases in the tests.csv file.
                             }).join('');
                             
                             const summaryPercent = calculateTestCaseSummaryPercent(tc);
+                            const testCase7D = calculateTestCaseRollingPercent(tc, 7);
+                            const testCase30D = calculateTestCaseRollingPercent(tc, 30);
                             
                             // 3. The Test Case Row
                             return `
@@ -974,6 +1049,8 @@ the test cases in the tests.csv file.
                                     </th>
                                     ${testCaseDailyCells}
                                     <td role="gridcell" class="py-2 px-3 text-xs font-semibold text-center whitespace-nowrap ${getPercentColor(summaryPercent)}">${summaryPercent}%</td>
+                                    <td role="gridcell" class="py-2 px-3 text-xs font-semibold text-center whitespace-nowrap ${getPercentColor(testCase7D)}">${testCase7D}%</td>
+                                    <td role="gridcell" class="py-2 px-3 text-xs font-semibold text-center whitespace-nowrap ${getPercentColor(testCase30D)}">${testCase30D}%</td>
                                 </tr>`;
                         }).join('');
                     }
@@ -993,21 +1070,34 @@ the test cases in the tests.csv file.
                 <section id="tests-section">
                     <div class="mb-4">
                         <h2 class="text-xl font-bold text-slate-900">Tests</h2>
-                        <p class="text-sm text-slate-500 mt-1">Test trends across bundles and areas</p>
                     </div>
                     <div class="mb-4">
-                        <div class="flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                            <input type="text" id="text-filter" oninput="handleFilterChange(event)" name="textFilter" placeholder="Filter test cases..." value="${state.textFilter}" class="min-w-[200px] w-64 pl-2 pr-8 py-2 text-base border border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm" />
+                        <div class="mb-2">
+                            <span class="text-xs font-medium text-slate-600 uppercase tracking-wider">View By</span>
+                        </div>
+                        <p class="mb-2 text-sm text-slate-500">Select to change view by Area or by Suite.</p>
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center">
+                                <select id="view-by" onchange="handleFilterChange(event)" name="viewBy" class="w-full pl-2 pr-8 py-2 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm">
+                                    <option value="Area" ${state.viewBy === 'Area' ? 'selected' : ''}>Area</option>
+                                    <option value="Suite" ${state.viewBy === 'Suite' ? 'selected' : ''}>Suite</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                <input type="text" id="text-filter" oninput="handleFilterChange(event)" name="textFilter" placeholder="Filter test cases..." value="${state.textFilter}" class="min-w-[200px] w-64 pl-2 pr-8 py-2 text-base border border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm" />
+                            </div>
                         </div>
                     </div>
                     <div class="overflow-x-auto border border-slate-200 rounded-lg shadow-sm bg-white">
                         <table role="grid" class="min-w-full">
                             <thead class="bg-slate-100 sticky-header border-b border-slate-300">
                                 <tr role="row">
-                                    <th scope="col" class="sticky-col py-3 px-4 text-xs font-medium text-slate-500 uppercase tracking-wider text-left bg-slate-100 border-r border-slate-200">Area / Bundle / Test Case</th>
+                                    <th scope="col" class="sticky-col py-3 px-4 text-xs font-medium text-slate-500 uppercase tracking-wider text-left bg-slate-100 border-r border-slate-200">Test Hierarchy</th>
                                     ${tableHeaders}
-                                    <th scope="col" class="py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wider text-center whitespace-nowrap">Summary%</th>
+                                    <th scope="col" class="py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wider text-center whitespace-nowrap">Range%</th>
+                                    <th scope="col" class="py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wider text-center whitespace-nowrap">7D%</th>
+                                    <th scope="col" class="py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wider text-center whitespace-nowrap">30D%</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-200">
@@ -1250,7 +1340,47 @@ the test cases in the tests.csv file.
     }
     
     function handleFilterChange(event) {
+        const previousViewBy = state.viewBy;
         state[event.target.name] = event.target.value;
+        
+        // If viewBy changed, rebuild master data and rehydrate test case history
+        if (event.target.name === 'viewBy' && previousViewBy !== state.viewBy) {
+            try {
+                masterData = buildMasterDataFromJSON(state.viewBy);
+                
+                // Hydrate test case history
+                Object.values(masterData).forEach(suite => {
+                    suite.areas.forEach(area => {
+                        area.bundles.forEach(bundle => {
+                            if (bundle.cases) {
+                                bundle.cases.forEach(tc => tc.dailyHistory = generateTestCaseHistory(tc));
+                            }
+                        });
+                    });
+                });
+                
+                // Clear expanded items and detail view when switching views
+                state.expandedItems.clear();
+                state.detailView = null;
+                
+                // Expand first area by default after data is rebuilt
+                if (masterData["multi-arch"] && masterData["multi-arch"].areas.length > 0) {
+                    const firstArea = masterData["multi-arch"].areas[0];
+                    state.expandedItems.add(firstArea.id);
+                    // Also expand first bundle in first area if it exists
+                    if (firstArea.bundles.length > 0) {
+                        state.expandedItems.add(firstArea.bundles[0].id);
+                    }
+                }
+            } catch (error) {
+                console.error('Error rebuilding master data:', error);
+                showToast('Failed to switch view: ' + error.message);
+                // Revert the viewBy change
+                state.viewBy = previousViewBy;
+                event.target.value = previousViewBy;
+            }
+        }
+        
         renderApp();
     }
     
@@ -1412,57 +1542,30 @@ the test cases in the tests.csv file.
     }
     
     function loadTestsTreeJson() {
-        try {
-            // Check if data was already loaded via script tag (works with file://)
-            if (typeof window.testsTreeJson !== 'undefined' && window.testsTreeJson !== null) {
-                testsTreeJson = window.testsTreeJson;
-                return Promise.resolve(testsTreeJson);
-            }
-            
-            // Fallback: Try fetch (works with http/https)
-            if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
-                return fetch('tests_tree.json')
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`Failed to load tests_tree.json: ${response.status} ${response.statusText}`);
-                        }
-                        return response.json();
-                    })
-                    .then(json => {
-                        testsTreeJson = json;
-                        return testsTreeJson;
-                    });
-            }
-            
-            // Fallback: For file:// protocol, try synchronous XMLHttpRequest
-            const xhr = new XMLHttpRequest();
-            xhr.open('GET', 'tests_tree.json', false); // synchronous
-            xhr.send(null);
-            
-            if (xhr.status === 200 || xhr.status === 0) { // 0 for file://
-                testsTreeJson = JSON.parse(xhr.responseText);
-                return Promise.resolve(testsTreeJson);
-            } else {
-                throw new Error(`Failed to load tests_tree.json: HTTP ${xhr.status}. Please ensure tests_tree.js exists in the same directory.`);
-            }
-        } catch (error) {
-            console.error('Error loading tests_tree.json:', error);
-            document.getElementById('app').innerHTML = `
-                <div class="p-6">
-                    <div class="text-center py-16 px-6 bg-white border border-red-200 rounded-lg shadow-sm">
-                        <h3 class="text-lg font-semibold text-red-700">Failed to Load Test Data</h3>
-                        <p class="mt-2 text-sm text-red-500">Error: ${error.message}</p>
-                        <p class="mt-2 text-sm text-slate-500">Please ensure tests_tree.js is in the same directory as this HTML file.</p>
-                        <p class="mt-2 text-xs text-slate-400">Note: tests_tree.js is generated from tests_tree.json and is required for file:// protocol access.</p>
-                    </div>
-                </div>`;
-            throw error;
+        // Check if data was already loaded via script tag (works with file://)
+        if (typeof window.testsTreeJson !== 'undefined' && window.testsTreeJson !== null) {
+            testsTreeJson = window.testsTreeJson;
+            return Promise.resolve(testsTreeJson);
         }
+        
+        // If JS file didn't load, show error
+        const error = new Error('tests_tree.js failed to load. Please ensure the file exists in the same directory.');
+        console.error('Error loading tests_tree.js:', error);
+        document.getElementById('app').innerHTML = `
+            <div class="p-6">
+                <div class="text-center py-16 px-6 bg-white border border-red-200 rounded-lg shadow-sm">
+                    <h3 class="text-lg font-semibold text-red-700">Failed to Load Test Data</h3>
+                    <p class="mt-2 text-sm text-red-500">Error: ${error.message}</p>
+                    <p class="mt-2 text-sm text-slate-500">Please ensure tests_tree.js is in the same directory as this HTML file.</p>
+                    <p class="mt-2 text-xs text-slate-400">Note: tests_tree.js is generated from tests_tree.json and is required for file:// protocol access.</p>
+                </div>
+            </div>`;
+        throw error;
     }
     
     function initializeApp() {
-        // Build master data from loaded JSON
-        masterData = buildMasterDataFromJSON();
+        // Build master data from loaded JSON (default to Area view)
+        masterData = buildMasterDataFromJSON('Area');
         
         // Hydrate test case history
         Object.values(masterData).forEach(suite => {
@@ -1491,6 +1594,7 @@ the test cases in the tests.csv file.
             branch: "master",
             architecture: "all",
             textFilter: "",
+            viewBy: "Area",
             runId: urlRunId,
             expandedItems: new Set(),
             detailView: null
