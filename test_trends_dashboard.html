@@ -1,0 +1,1548 @@
+<!--
+Copyright 2025 SciFin Inc.
+
+Author: Sudhakar Narayanamurthy
+
+Test Trends Dashboard HTML file. This file is used to display the test trends
+dashboard. It is a single-page application that displays the test trends for 
+the test cases in the tests.csv file.
+-->
+<!DOCTYPE html>
+<html lang="en" class="bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* =========================================
+           Custom Styles
+           ========================================= */
+        
+        /* Sticky Table Headers & Columns */
+        .sticky-header th { position: sticky; top: 0; z-index: 10; }
+        .sticky-col { position: sticky; left: 0; z-index: 5; }
+        
+        /* Ensure background continuity for sticky columns */
+        .area-row .sticky-col, 
+        .bundle-row .sticky-col, 
+        .test-case-row .sticky-col { 
+            background-color: inherit; 
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        /* Transitions */
+        #details-panel-container, 
+        #toast-container { transition: opacity 0.3s ease-in-out; }
+        #details-panel { transition: transform 0.3s ease-in-out; }
+        
+        /* Details/Summary Marker Customization */
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        details > summary .marker { transition: transform 0.2s ease-in-out; }
+        details[open] > summary .marker { transform: rotate(180deg); }
+
+        /* Toast Animations */
+        .toast {
+            animation: toast-in 0.5s ease, toast-out 0.5s ease 3.5s forwards;
+        }
+        @keyframes toast-in { 
+            from { transform: translateY(100%); opacity: 0; } 
+            to { transform: translateY(0); opacity: 1; } 
+        }
+        @keyframes toast-out { 
+            from { transform: translateY(0); opacity: 1; } 
+            to { transform: translateY(100%); opacity: 0; } 
+        }
+    </style>
+</head>
+<body class="font-sans text-slate-800 antialiased">
+
+    <div id="app" class="relative min-h-screen">
+        <!-- App Content Injected Here -->
+    </div>
+    
+    <div id="toast-container" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <!-- Toasts Injected Here -->
+    </div>
+
+    <!-- Load test tree data from JavaScript file (works with file:// protocol) -->
+    <script src="tests_tree.js" onerror="console.error('Failed to load tests_tree.js. Please ensure the file exists in the same directory.')"></script>
+
+    <script>
+    // =================================================================================
+    // 1. CONFIGURATION & ICONS
+    // =================================================================================
+    
+    const ICONS = {
+        chevronRight: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>`,
+        chevronDown: `<svg class="marker h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>`,
+        retrigger: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" /></svg>`,
+        close: `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>`,
+        calendar: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>`,
+        branch: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 21h4v-9H10v9zm0-18v3h4V3h-4zM6 12a4 4 0 014-4h4a4 4 0 014 4v9h-4v-7h-4v7H6v-9z" /></svg>`,
+        chip: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M12 6V3m0 18v-3m6-6h-2M6 12H4M9 6h6v12H9z" /></svg>`,
+        plus: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>`,
+        clipboardList: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>`,
+        copy: `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 hover:text-slate-600 cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>`,
+        chartBar: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>`,
+        link: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>`,
+        jira: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-1.5h5.25m-5.25 0h5.25m-5.25 0h5.25m-5.25 0V6a2.25 2.25 0 012.25-2.25h5.25a2.25 2.25 0 012.25 2.25v12a2.25 2.25 0 01-2.25 2.25H7.5A2.25 2.25 0 015.25 18v-1.5z" /></svg>`,
+        play: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" /></svg>`
+    };
+    
+    // Generate last 30 days with both formatted strings and Date objects
+    const dates = Array.from({ length: 30 }, (_, i) => {
+        const dateObj = new Date();
+        dateObj.setDate(dateObj.getDate() - (29 - i));
+        dateObj.setHours(0, 0, 0, 0);
+        return {
+            formatted: dateObj.toLocaleDateString('en-US', { 
+                month: 'short', day: 'numeric' 
+            }),
+            dateObj: dateObj
+        };
+    });
+    
+    // Helper function to format date for input (YYYY-MM-DD)
+    function formatDateForInput(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
+    // Helper function to parse date from input string
+    function parseDateFromInput(dateString) {
+        const parsed = new Date(dateString);
+        parsed.setHours(0, 0, 0, 0);
+        return parsed;
+    }
+    
+    // Helper function to check if a date is within range
+    function isDateInRange(dateFormatted, startDate, endDate) {
+        const dateEntry = dates.find(d => d.formatted === dateFormatted);
+        if (!dateEntry) return false;
+        const date = dateEntry.dateObj;
+        return date >= startDate && date <= endDate;
+    }
+
+    // =================================================================================
+    // 2. DATA GENERATION (SIMULATION)
+    // =================================================================================
+
+    function generateBundleDailyData(days, { total, failRate, hasCoverage = false }) {
+        return Array.from({ length: days }, (_, i) => {
+            // 10% chance a run didn't happen at all
+            if (Math.random() < 0.1) return null;
+
+            const failedToday = Math.random() < failRate;
+            const passed = failedToday ? Math.floor(total * (Math.random() * 0.4 + 0.5)) : total;
+            
+            // Generate deterministic runId based on date index
+            // Use availableRunIds if we have them, otherwise generate one
+            const runIdIndex = i % (availableRunIds.length || 30);
+            const runId = availableRunIds[runIdIndex] || 
+                         (19000000000 + i).toString();
+            
+            const run = {
+                date: dates[i].formatted,
+                passed,
+                total,
+                runId: runId,
+                commit: Math.random().toString(36).substr(2, 7),
+                architecture: Math.random() > 0.5 ? 'amd64' : 'arm64',
+                k8sProvider: 'GKE',
+                nodeType: 'n2-standard-8',
+                duration: `${Math.floor(Math.random() * 20) + 5}m ${Math.floor(Math.random() * 60)}s`,
+                coverage: null
+            };
+
+            if (hasCoverage && total === passed) {
+                run.coverage = {
+                    lineCoverage: (Math.random() * 15 + 80).toFixed(1),
+                    branchCoverage: (Math.random() * 15 + 75).toFixed(1),
+                    functionCoverage: (Math.random() * 15 + 82).toFixed(1),
+                    reportUrl: "#"
+                };
+            }
+            return run;
+        });
+    }
+    
+    function generateTestCaseHistory(testCase) {
+        const history = [];
+        const failureDays = new Set();
+        
+        // Distribute failures randomly
+        for (let i = 0; i < testCase.failures; i++) {
+            let dayIndex;
+            do { dayIndex = Math.floor(Math.random() * 30); } while (failureDays.has(dayIndex));
+            failureDays.add(dayIndex);
+        }
+
+        for (let i = 0; i < 30; i++) {
+            // 10% chance no run at all
+            if (Math.random() < 0.1) {
+                history.push({ date: dates[i].formatted, passed: 0, total: 0 });
+                continue;
+            }
+            
+            // Generate 1-5 runs per day (more runs if flaky)
+            const runsPerDay = testCase.flaky 
+                ? Math.floor(Math.random() * 4) + 2  // 2-5 runs if flaky
+                : Math.floor(Math.random() * 3) + 1;  // 1-3 runs normally
+            
+            let passed = 0;
+            let failed = 0;
+            
+            // If this is a failure day, ensure at least one failure
+            const hasFailureDay = failureDays.has(i) || (testCase.flaky && Math.random() < 0.05);
+            
+            for (let runIdx = 0; runIdx < runsPerDay; runIdx++) {
+                if (hasFailureDay && runIdx === 0) {
+                    // First run on failure day fails
+                    failed++;
+                } else if (hasFailureDay && Math.random() < 0.3) {
+                    // Additional runs on failure day have 30% chance to fail
+                    failed++;
+                } else if (testCase.flaky && Math.random() < 0.1) {
+                    // Flaky tests have 10% chance of random failure
+                    failed++;
+                } else {
+                    passed++;
+                }
+            }
+            
+            history.push({ date: dates[i].formatted, passed: passed, total: passed + failed });
+        }
+        return history;
+    }
+
+    // Test tree data will be loaded from external JSON file
+    let testsTreeJson = null;
+
+    function generateIdFromPath(path) {
+        return path.replace(/[\/:]/g, '-').replace(/^\-+/, '').toLowerCase();
+    }
+
+    function getAreaDisplayName(areaPath) {
+        return areaPath.replace(/^\/+/, '').split('/').pop() || areaPath;
+    }
+
+    function getBundleDisplayName(bundlePath) {
+        const parts = bundlePath.replace(/^\/+/, '').split('/');
+        return parts.length > 1 ? parts.slice(-2).join('/') : parts[0] || bundlePath;
+    }
+
+    function getTestCaseDisplayName(testCasePath) {
+        const match = testCasePath.match(/:([^:]+)$/);
+        return match ? match[1] : testCasePath.split('/').pop();
+    }
+
+    function getOwnerForArea(areaPath) {
+        const areaName = getAreaDisplayName(areaPath);
+        const owners = {
+            'genesis': 'Data Team',
+            'matrix': 'Matrix Team',
+            'morpheus': 'Morpheus Team',
+            'mysterio': 'Mysterio Team',
+            'openutil': 'Platform Team',
+            'platform': 'Platform Team',
+            'sage': 'Sage Team',
+            'skill': 'Skill Team',
+            'spectrum': 'Spectrum Team',
+            'synapse': 'Synapse Team',
+            'util': 'Platform Team',
+            'zion': 'Zion Team'
+        };
+        return owners[areaName.toLowerCase()] || 'Unknown Team';
+    }
+
+    function getTypeForArea(areaPath) {
+        const areaName = getAreaDisplayName(areaPath);
+        if (areaName === 'openutil' || areaName === 'platform' || areaName === 'util') {
+            return 'infrastructure';
+        }
+        return 'microservice';
+    }
+    
+    function buildMasterDataFromJSON() {
+        if (!testsTreeJson) {
+            throw new Error('testsTreeJson is not loaded. Please ensure tests_tree.json is loaded before building master data.');
+        }
+        const areas = Object.keys(testsTreeJson).map(areaPath => {
+            const bundles = Object.keys(testsTreeJson[areaPath]).map(bundlePath => {
+                const testCases = testsTreeJson[areaPath][bundlePath];
+                const totalTests = testCases.length;
+                
+                // Generate random fail rate between 0.02 and 0.25
+                const failRate = Math.random() * 0.23 + 0.02;
+                // Randomly decide if bundle has coverage (30% chance)
+                const hasCoverage = Math.random() < 0.3;
+                
+                // Generate daily data for bundle
+                const daily = generateBundleDailyData(30, { 
+                    total: totalTests, 
+                    failRate: failRate,
+                    hasCoverage: hasCoverage
+                });
+                
+                // Calculate rolling percentages
+                const calculateRolling = (days) => {
+                    const relevantDays = daily.slice(-days).filter(d => d !== null);
+                    if (relevantDays.length === 0) return 100;
+                    const totalPassed = relevantDays.reduce((sum, day) => sum + day.passed, 0);
+                    const totalTests = relevantDays.reduce((sum, day) => sum + day.total, 0);
+                    return totalTests > 0 ? parseFloat(((totalPassed / totalTests) * 100).toFixed(1)) : 100;
+                };
+                
+                // Generate test cases with random failure data
+                const cases = testCases.map(testCasePath => {
+                    const failures = Math.floor(Math.random() * 5); // 0-4 failures
+                    const isFlaky = Math.random() < 0.15; // 15% chance of being flaky
+                    const hasJira = failures > 0 && Math.random() < 0.4; // 40% chance if has failures
+                    
+                    let lastFailDate = null;
+                    if (failures > 0) {
+                        const daysAgo = Math.floor(Math.random() * 30);
+                        const date = new Date();
+                        date.setDate(date.getDate() - daysAgo);
+                        lastFailDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    }
+                    
+                    const errorMessages = [
+                        "Assertion failed: expected value mismatch",
+                        "Timeout waiting for response",
+                        "Connection refused",
+                        "Resource not found",
+                        "Invalid input parameter",
+                        "Database query failed",
+                        "Network error: connection reset"
+                    ];
+                    
+                    return {
+                        name: getTestCaseDisplayName(testCasePath),
+                        flaky: isFlaky,
+                        failures: failures,
+                        lastFailDate: lastFailDate,
+                        jiraTicket: hasJira ? `${getAreaDisplayName(areaPath).toUpperCase()}-${Math.floor(Math.random() * 1000)}` : null,
+                        errorAssertion: failures > 0 && Math.random() < 0.6 ? errorMessages[Math.floor(Math.random() * errorMessages.length)] : null,
+                        targetsCovered: [testCasePath]
+                    };
+                });
+                
+                return {
+                    id: generateIdFromPath(bundlePath),
+                    name: getBundleDisplayName(bundlePath),
+                    rolling7day: calculateRolling(7),
+                    rolling30day: calculateRolling(30),
+                    daily: daily,
+                    cases: cases
+                };
+            });
+            
+            return {
+                id: generateIdFromPath(areaPath),
+                name: getAreaDisplayName(areaPath),
+                type: getTypeForArea(areaPath),
+                owner: getOwnerForArea(areaPath),
+                bundles: bundles
+            };
+        });
+        
+        return {
+            "multi-arch": {
+                id: "multi-arch",
+                name: "Test Trends Report",
+                description: "(1) To show Test trends over time. Gives pass-count over run-count (the success rate) trend at various Test granularities like Area, Bundle, Test case. A trend of this metric across a Time horizon (range of days) is shown. (2) Also allows drilling down and investigate a single Test Run. Geared towards troubleshooting Test failures encountered in the Run. Shows 'Run Info' containing links to Pod Logs, CI logs and other diagnostic data gathered as part of the Run. A run typically happens on a single branch and commit and makes a quality statement for that version.",
+                branches: ["master", "private", "All"],
+                architectures: ["all", "amd64", "arm64"],
+                areas: areas
+            }
+        };
+    }
+
+    // Master data will be initialized after JSON is loaded
+    let masterData = null;
+    
+    // Generate GitHub-style run IDs (big numbers like 19527000470)
+    function generateRunIds(count = 30) {
+        const runIds = [];
+        for (let i = 0; i < count; i++) {
+            // Generate numbers in range 19000000000-19999999999
+            const runId = Math.floor(Math.random() * 1000000000) + 19000000000;
+            runIds.push(runId.toString());
+        }
+        return runIds.sort((a, b) => parseInt(b) - parseInt(a)); // Sort descending
+    }
+    
+    const availableRunIds = generateRunIds(30);
+
+    // =================================================================================
+    // 3. STATE MANAGEMENT
+    // =================================================================================
+    
+    // State will be initialized after masterData is built
+    let state = null;
+    
+    // =================================================================================
+    // 4. HELPERS
+    // =================================================================================
+
+    function calculateAreaAggregates(area) {
+        // 1. Sum up daily stats across all bundles in this area
+        const dailyAggregates = dates.map(dateEntry => {
+            const date = dateEntry.formatted;
+            let dailyPassed = 0;
+            let dailyTotal = 0;
+            area.bundles.forEach(bundle => {
+                const run = bundle.daily.find(d => d && d.date === date);
+                if (run) {
+                    dailyPassed += run.passed;
+                    dailyTotal += run.total;
+                }
+            });
+            return { date, passed: dailyPassed, total: dailyTotal };
+        });
+
+        // 2. Calculate summary % for selected date range
+        const calculateSummaryPercent = () => {
+            const relevantDays = dailyAggregates.filter(day => {
+                return isDateInRange(day.date, state.startDate, state.endDate);
+            });
+            const totalPassed = relevantDays.reduce((sum, day) => sum + day.passed, 0);
+            const totalTests = relevantDays.reduce((sum, day) => sum + day.total, 0);
+            return totalTests > 0 ? 
+                parseFloat(((totalPassed / totalTests) * 100).toFixed(1)) : 100;
+        };
+
+        return {
+            daily: dailyAggregates,
+            summaryPercent: calculateSummaryPercent()
+        };
+    }
+
+    function getCellColor(passed, total, isAggregate = false) {
+        if (total === 0 || passed === undefined || passed === null) {
+            return { bg: isAggregate ? 'bg-slate-200' : 'bg-slate-100', text: 'text-slate-400' };
+        }
+        const rate = (passed / total) * 100;
+        if (rate === 100) {
+            return { bg: isAggregate ? 'bg-green-200' : 'bg-green-100', text: 'text-green-800' };
+        }
+        if (rate >= 80) {
+            return { bg: isAggregate ? 'bg-yellow-200' : 'bg-yellow-100', text: 'text-yellow-800' };
+        }
+        return { bg: isAggregate ? 'bg-red-200' : 'bg-red-100', text: 'text-red-800' };
+    }
+
+    function getPercentColor(percent) {
+        if (percent === null || percent === undefined) return 'text-slate-500';
+        if (percent === 100) return 'text-green-600';
+        if (percent >= 80) return 'text-yellow-600';
+        return 'text-red-600';
+    }
+    
+    function calculateBundleSummaryPercent(bundle) {
+        const relevantDays = bundle.daily.filter(run => {
+            if (!run) return false;
+            return isDateInRange(run.date, state.startDate, state.endDate);
+        });
+        const totalPassed = relevantDays.reduce((sum, day) => sum + day.passed, 0);
+        const totalTests = relevantDays.reduce((sum, day) => sum + day.total, 0);
+        return totalTests > 0 ? 
+            parseFloat(((totalPassed / totalTests) * 100).toFixed(1)) : 100;
+    }
+    
+    function calculateTestCaseSummaryPercent(testCase) {
+        const relevantDays = testCase.dailyHistory.filter(day => {
+            if (!day || day.total === 0) return false;
+            return isDateInRange(day.date, state.startDate, state.endDate);
+        });
+        if (relevantDays.length === 0) return 100;
+        const totalPassed = relevantDays.reduce((sum, day) => sum + day.passed, 0);
+        const totalTests = relevantDays.reduce((sum, day) => sum + day.total, 0);
+        return totalTests > 0 ? 
+            parseFloat(((totalPassed / totalTests) * 100).toFixed(1)) : 100;
+    }
+
+    function getSuiteById(suiteId) {
+        return masterData[suiteId];
+    }
+
+    function getRunDetails(areaId, bundleId, date) {
+        const suite = getSuiteById(state.selectedSuiteId);
+        const area = suite.areas.find(a => a.id === areaId);
+        const bundle = area.bundles.find(b => b.id === bundleId);
+        const run = bundle.daily.find(d => d && d.date === date);
+        return { suite, area, bundle, run };
+    }
+
+    function testCaseMatchesFilter(testCase) {
+        if (!state.textFilter || state.textFilter.trim() === '') {
+            return true;
+        }
+        const filterLower = state.textFilter.toLowerCase().trim();
+        return testCase.name.toLowerCase().includes(filterLower);
+    }
+
+    function bundleHasMatchingTestCases(bundle) {
+        if (!state.textFilter || state.textFilter.trim() === '') {
+            return true;
+        }
+        if (!bundle.cases || bundle.cases.length === 0) {
+            return false;
+        }
+        return bundle.cases.some(tc => testCaseMatchesFilter(tc));
+    }
+
+    function areaHasMatchingBundles(area) {
+        if (!state.textFilter || state.textFilter.trim() === '') {
+            return true;
+        }
+        return area.bundles.some(bundle => bundleHasMatchingTestCases(bundle));
+    }
+
+    function showToast(message) {
+        const toastContainer = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = 'toast bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded-full shadow-lg';
+        toast.textContent = message;
+        toastContainer.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    }
+    
+    // =================================================================================
+    // 5. RENDERING FUNCTIONS
+    // =================================================================================
+
+    function renderHeader() {
+        const suite = getSuiteById(state.selectedSuiteId);
+        const branchesOptions = suite.branches.map(b => 
+            `<option value="${b}" ${state.branch === b ? 'selected' : ''}>${b}</option>`
+        ).join('');
+        
+        const archOptions = suite.architectures.map(a => 
+            `<option value="${a}" ${state.architecture === a ? 'selected' : ''}>${a}</option>`
+        ).join('');
+        
+        const legendCell = (color, text) => `
+            <div class="flex items-center gap-2">
+                <span class="w-4 h-4 rounded ${color.bg}"></span>
+                <span class="text-sm text-slate-600">${text}</span>
+            </div>`;
+
+        return `
+            <header class="p-6 bg-white border-b border-slate-200">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-900">${suite.name}</h1>
+                        <div class="text-sm text-slate-500 mt-1 space-y-1">
+                            <p>${suite.description.split(' (2)')[0]}</p>
+                            <p>${suite.description.includes('(2)') ? '(2) ' + suite.description.split('(2) ')[1] : ''}</p>
+                            <p>Last updated: ${new Date().toLocaleString()}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-x-6 gap-y-2 flex-wrap">
+                        ${legendCell(getCellColor(100,100), '100% Pass')}
+                        ${legendCell(getCellColor(90,100), '80-99%')}
+                        ${legendCell(getCellColor(70,100), '<80%')}
+                        ${legendCell(getCellColor(null,null), 'No Run')}
+                    </div>
+                </div>
+                <div class="mt-6">
+                    <div class="mb-2">
+                        <span class="text-xs font-medium text-slate-600 uppercase tracking-wider">Time Range</span>
+                    </div>
+                    <p class="mb-2 text-sm text-slate-500">Select the time range of interest. Trends will be displayed over this range in days.</p>
+                    <div class="flex flex-wrap gap-4 items-center">
+                        <div class="flex items-center">
+                            ${ICONS.calendar}
+                            <input type="date" id="start-date" onchange="handleDateChange(event)" name="startDate" value="${formatDateForInput(state.startDate)}" class="w-full pl-2 pr-8 py-2 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm" title="Start Date" />
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-slate-400 mr-2">to</span>
+                            <input type="date" id="end-date" onchange="handleDateChange(event)" name="endDate" value="${formatDateForInput(state.endDate)}" class="w-full pl-2 pr-8 py-2 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm" title="End Date" />
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <div class="mb-2">
+                        <span class="text-xs font-medium text-slate-600 uppercase tracking-wider">Run Selection</span>
+                    </div>
+                    <p class="mb-2 text-sm text-slate-500">Select the Run. The Run IDs shown typically corresponds to the CI workflow RunID. Based on date range selection, applicable RunIDs are shown. Selecting a RunID narrows down the results to that Run. A Info section containing various diagnostic information gathered as part of that Run is also shown.</p>
+                    <div class="flex flex-wrap gap-4 items-center">
+                        <div class="flex items-center">
+                            ${ICONS.play}
+                            <select id="runId" onchange="handleRunIdChange(event)" name="runId" class="w-full pl-2 pr-8 py-2 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm" title="Select a specific run">
+                                <option value="All" ${state.runId === 'All' || !state.runId ? 'selected' : ''}>All Runs</option>
+                                ${availableRunIds.map(runId => `<option value="${runId}" ${state.runId === runId ? 'selected' : ''}>${runId}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <div class="mb-2">
+                        <span class="text-xs font-medium text-slate-600 uppercase tracking-wider">Branch Type</span>
+                    </div>
+                    <p class="mb-2 text-sm text-slate-500">We support 'master', 'release' or 'private'. (Note that we allow only the branch type and not the exact branch except master to avoid high-cardinality for the dimension).</p>
+                    <div class="flex flex-wrap gap-4 items-center">
+                        <div class="flex items-center">
+                            ${ICONS.branch}
+                            <select id="branch" onchange="handleFilterChange(event)" name="branch" class="w-full pl-2 pr-8 py-2 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm">
+                                ${branchesOptions}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <div class="mb-2">
+                        <span class="text-xs font-medium text-slate-600 uppercase tracking-wider">Architecture</span>
+                    </div>
+                    <div class="flex flex-wrap gap-4 items-center">
+                        <div class="flex items-center">
+                            ${ICONS.chip}
+                            <select id="architecture" onchange="handleFilterChange(event)" name="architecture" class="w-full pl-2 pr-8 py-2 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm">
+                                ${archOptions}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </header>`;
+    }
+    
+    function renderRunInfoSection() {
+        if (!state.runId || state.runId === 'All') {
+            return '';
+        }
+        
+        const suite = getSuiteById(state.selectedSuiteId);
+        let visibleDates = dates
+            .filter(dateEntry => {
+                return dateEntry.dateObj >= state.startDate && 
+                       dateEntry.dateObj <= state.endDate;
+            })
+            .map(dateEntry => dateEntry.formatted);
+        
+        // If a specific Run ID is selected, show only the date for that run
+        if (visibleDates.length > 0) {
+            const runIdNum = parseInt(state.runId) || 0;
+            const dateIndex = runIdNum % visibleDates.length;
+            visibleDates = [visibleDates[dateIndex]];
+        }
+        
+        // Collect all runs for the selected date across all areas and bundles
+        const runData = [];
+        suite.areas.forEach(area => {
+            area.bundles.forEach(bundle => {
+                visibleDates.forEach(date => {
+                    const run = bundle.daily.find(d => d && d.date === date);
+                    if (run) {
+                        runData.push({
+                            area: area,
+                            bundle: bundle,
+                            run: run,
+                            date: date
+                        });
+                    }
+                });
+            });
+        });
+        
+        if (runData.length === 0) {
+            return `
+                <section id="run-info-section">
+                    <div class="mb-4">
+                        <h2 class="text-xl font-bold text-slate-900">Run Info</h2>
+                        <p class="text-sm text-slate-500 mt-1">Details for Run ID: ${state.runId}</p>
+                    </div>
+                    <div class="overflow-x-auto border border-slate-200 rounded-lg shadow-sm bg-white">
+                        <div class="p-8 text-center text-slate-500">
+                            <p>No data found for the selected date range</p>
+                        </div>
+                    </div>
+                </section>`;
+        }
+        
+        // Use first run for metadata
+        const runMetadata = runData[0].run;
+        
+        // Generate universe information (deterministic based on runId)
+        const universeNames = ['dev02', 'dev01', 'staging', 'prod'];
+        const universeIndex = parseInt(state.runId) % universeNames.length;
+        const universeName = universeNames[universeIndex];
+        const universeUrl = `https://${universeName}.cloud.scifin.com`;
+        
+        // Generate datasphere and cluster URLs
+        const dataspheres = [
+            { name: 'ds01', clusters: ['c01', 'c02'] },
+            { name: 'ds02', clusters: ['c01'] }
+        ];
+        const dsIndex = (parseInt(state.runId) % dataspheres.length);
+        const datasphere = dataspheres[dsIndex];
+        const datasphereUrl = `https://${datasphere.name}.${universeName}.cloud.scifin.com`;
+        
+        // Generate sample artifacts with GitHub artifact IDs
+        // Generate deterministic artifact IDs based on runId
+        const baseArtifactId = parseInt(state.runId) || 19524014495;
+        const artifacts = [
+            {
+                name: `Test Failure Logs (${state.runId})`,
+                size: `${(Math.random() * 500 + 200).toFixed(0)} KB`,
+                artifactId: (baseArtifactId + 1000000).toString()
+            },
+            {
+                name: `Complete Diagnostic Bundle (${state.runId})`,
+                size: `${(Math.random() * 2000 + 1000).toFixed(2)} MB`,
+                artifactId: (baseArtifactId + 2000000).toString()
+            },
+            {
+                name: `Test Results Data (${state.runId})`,
+                size: `${(Math.random() * 100 + 50).toFixed(0)} KB`,
+                artifactId: (baseArtifactId + 3000000).toString()
+            }
+        ];
+        
+        // Calculate start and end times based on date and duration
+        const parseDuration = (durationStr) => {
+            // Parse format like "5m 30s" or "20m 45s"
+            const minutesMatch = durationStr.match(/(\d+)m/);
+            const secondsMatch = durationStr.match(/(\d+)s/);
+            const minutes = minutesMatch ? parseInt(minutesMatch[1]) : 0;
+            const seconds = secondsMatch ? parseInt(secondsMatch[1]) : 0;
+            return minutes * 60 + seconds; // Return total seconds
+        };
+        
+        const dateEntry = dates.find(d => d.formatted === visibleDates[0]);
+        const runDate = dateEntry ? new Date(dateEntry.dateObj) : new Date();
+        
+        // Generate deterministic start time based on runId (between 8 AM and 6 PM)
+        const runIdNum = parseInt(state.runId) || 0;
+        const hourOffset = runIdNum % 10; // 0-9 hours
+        const minuteOffset = (runIdNum % 60); // 0-59 minutes
+        runDate.setHours(8 + hourOffset, minuteOffset, 0, 0);
+        
+        const startTime = runDate;
+        const durationSeconds = parseDuration(runMetadata.duration);
+        const endTime = new Date(startTime.getTime() + durationSeconds * 1000);
+        
+        const formatDateTime = (date) => {
+            return date.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+        };
+        
+        // Generate Cloud Monitoring Logs URL
+        const projectId = 'scifin-production'; // Default project ID
+        const logFilter = encodeURIComponent(
+            `resource.type="k8s_container" AND ` +
+            `resource.labels.cluster_name="${datasphere.clusters[0]}" AND ` +
+            `resource.labels.namespace_name="default" AND ` +
+            `timestamp>="${startTime.toISOString()}" AND ` +
+            `timestamp<="${endTime.toISOString()}"`
+        );
+        const cloudMonitoringUrl = 
+            `https://console.cloud.google.com/logs/query?project=${projectId}&query=${logFilter}`;
+        
+        const metadataItem = (label, value) => `
+            <div class="flex flex-col">
+                <dt class="text-xs text-slate-500">${label}</dt>
+                <dd class="text-sm text-slate-800 mt-1 font-mono">${value}</dd>
+            </div>`;
+        
+        const metadataItemLink = (label, url, text) => `
+            <div class="flex flex-col">
+                <dt class="text-xs text-slate-500">${label}</dt>
+                <dd class="text-sm text-slate-800 mt-1">
+                    <a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline font-mono">${text}</a>
+                </dd>
+            </div>`;
+        
+        const githubWorkflowUrl = `https://github.com/scifin-inc/main/actions/runs/${state.runId}`;
+        
+        return `
+            <section id="run-info-section">
+                <div class="mb-4">
+                    <h2 class="text-xl font-bold text-slate-900">Run Info</h2>
+                    <p class="text-sm text-slate-500 mt-1">Details for Run ID: ${state.runId}</p>
+                </div>
+                <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg mb-6">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-x-6 gap-y-4">
+                        ${metadataItem("Run ID", state.runId)}
+                        ${metadataItem("Branch", state.branch)}
+                        ${metadataItem("Architecture", runMetadata.architecture)}
+                        ${metadataItem("K8s Provider", runMetadata.k8sProvider)}
+                        ${metadataItem("Node Type", runMetadata.nodeType)}
+                        ${metadataItem("Commit", runMetadata.commit)}
+                        ${metadataItemLink("Github Workflow Link", githubWorkflowUrl, state.runId)}
+                        ${metadataItem("Duration", runMetadata.duration)}
+                        ${metadataItem("Date", visibleDates.length === 1 ? visibleDates[0] : `${visibleDates[0]} - ${visibleDates[visibleDates.length - 1]}`)}
+                        ${metadataItem("Start Time", formatDateTime(startTime))}
+                        ${metadataItem("End Time", formatDateTime(endTime))}
+                        ${metadataItemLink("Link to Cloud Monitoring Logs", cloudMonitoringUrl, "View Logs")}
+                        ${metadataItem("Universe", universeName)}
+                        ${metadataItemLink("Universe URL", universeUrl, universeUrl)}
+                        ${metadataItemLink("Datasphere", datasphereUrl, datasphere.name)}
+                        ${datasphere.clusters.map(cluster => {
+                            const clusterUrl = `https://${cluster}.${datasphere.name}.${universeName}.cloud.scifin.com`;
+                            return metadataItemLink(`Cluster ${cluster}`, clusterUrl, cluster);
+                        }).join('')}
+                        ${artifacts.map(artifact => {
+                            const artifactUrl = `https://github.com/scifin-inc/main/actions/runs/${state.runId}/artifacts/${artifact.artifactId}`;
+                            return metadataItemLink(artifact.name, artifactUrl, artifact.artifactId);
+                        }).join('')}
+                    </div>
+                </div>
+            </section>`;
+    }
+    
+    function renderGrid() {
+        const suite = getSuiteById(state.selectedSuiteId);
+        let visibleDates = dates
+            .filter(dateEntry => {
+                return dateEntry.dateObj >= state.startDate && 
+                       dateEntry.dateObj <= state.endDate;
+            })
+            .map(dateEntry => dateEntry.formatted);
+        
+        // If a specific Run ID is selected, show only the date for that run
+        if (state.runId && state.runId !== 'All' && visibleDates.length > 0) {
+            const runIdNum = parseInt(state.runId) || 0;
+            const dateIndex = runIdNum % visibleDates.length;
+            visibleDates = [visibleDates[dateIndex]];
+        }
+        
+        const tableHeaders = visibleDates.map(date => 
+            `<th scope="col" class="py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wider text-center whitespace-nowrap">${date}</th>`
+        ).join('');
+
+        if (!suite.areas || suite.areas.length === 0) {
+            const showRunInfo = state.runId && state.runId !== 'All';
+            
+            return `
+                <main class="p-6 space-y-8">
+                    ${showRunInfo ? renderRunInfoSection() : ''}
+
+                    <!-- Tests Section -->
+                    <section id="tests-section">
+                        <div class="mb-4">
+                            <h2 class="text-xl font-bold text-slate-900">Tests</h2>
+                            <p class="text-sm text-slate-500 mt-1">Test trends across bundles and areas</p>
+                        </div>
+                        <div class="mb-4">
+                            <div class="flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                <input type="text" id="text-filter" oninput="handleFilterChange(event)" name="textFilter" placeholder="Filter test cases..." value="${state.textFilter}" class="min-w-[200px] w-64 pl-2 pr-8 py-2 text-base border border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm" />
+                            </div>
+                        </div>
+                        <div class="text-center py-16 px-6 bg-white border border-slate-200 rounded-lg shadow-sm">
+                            <h3 class="text-lg font-semibold text-slate-700">No Test Data Available</h3>
+                            <p class="mt-2 text-sm text-slate-500">There are no test areas configured for the "${suite.name}".</p>
+                        </div>
+                    </section>
+                </main>`;
+        }
+
+        // Filter areas to only show those with matching bundles
+        const filteredAreas = suite.areas.filter(area => areaHasMatchingBundles(area));
+        
+        // Auto-expand areas and bundles that contain matches when filtering
+        if (state.textFilter && state.textFilter.trim() !== '') {
+            filteredAreas.forEach(area => {
+                state.expandedItems.add(area.id);
+                area.bundles.forEach(bundle => {
+                    if (bundleHasMatchingTestCases(bundle)) {
+                        state.expandedItems.add(bundle.id);
+                    }
+                });
+            });
+        }
+
+        const tableRows = filteredAreas.map(area => {
+            const isAreaExpanded = state.expandedItems.has(area.id);
+            const expandIcon = `<div class="transition-transform duration-200 ${isAreaExpanded ? 'rotate-90' : ''}">${ICONS.chevronRight}</div>`;
+            
+            const areaAggregates = calculateAreaAggregates(area);
+            const areaDailyCells = visibleDates.map(date => {
+                const dayData = areaAggregates.daily.find(d => d.date === date);
+                if (!dayData || dayData.total === 0) return `<td role="gridcell" class="py-3 px-3 text-center text-sm font-mono text-slate-400">—</td>`;
+                
+                const color = getCellColor(dayData.passed, dayData.total, true);
+                return `
+                    <td role="gridcell" class="p-1.5 text-center">
+                        <div class="py-1.5 px-2 text-sm font-semibold font-mono cursor-pointer ${color.bg} ${color.text} hover:shadow-md hover:ring-2 hover:ring-blue-400 rounded-md transition-all duration-150" 
+                             tabindex="0" 
+                             onkeydown="handleKeyboardInteraction(event, () => toggleItem('${area.id}'))" 
+                             onclick="toggleItem('${area.id}')">
+                            ${dayData.passed}/${dayData.total}
+                        </div>
+                    </td>`;
+            }).join('');
+
+            // 1. The Area Row (Aggregate)
+            const areaRow = `
+                <tr role="row" class="area-row bg-slate-100 border-b border-slate-300 hover:bg-slate-200/70 transition-colors duration-150">
+                    <th scope="row" class="sticky-col py-3 px-4 font-semibold text-slate-800 whitespace-nowrap border-r border-slate-200 text-left">
+                        <button class="flex items-center gap-2 w-full" aria-expanded="${isAreaExpanded}" onclick="toggleItem('${area.id}')">
+                            ${expandIcon}<span>${area.name}</span>
+                        </button>
+                    </th>
+                    ${areaDailyCells}
+                    <td role="gridcell" class="py-3 px-3 text-sm font-semibold text-center whitespace-nowrap ${getPercentColor(areaAggregates.summaryPercent)}">${areaAggregates.summaryPercent}%</td>
+                </tr>`;
+
+            let bundleRows = '';
+            if (isAreaExpanded) {
+                // Filter bundles to only show those with matching test cases
+                const filteredBundles = area.bundles.filter(bundle => bundleHasMatchingTestCases(bundle));
+                bundleRows = filteredBundles.map(bundle => {
+                    const isBundleExpanded = state.expandedItems.has(bundle.id);
+                    const bundleHasCases = bundle.cases && bundle.cases.length > 0;
+                    const bundleExpandIcon = bundleHasCases 
+                        ? `<div class="transition-transform duration-200 ${isBundleExpanded ? 'rotate-90' : ''}">${ICONS.chevronRight}</div>` 
+                        : `<div class="w-5 h-5"></div>`;
+                    
+                    const dailyCells = visibleDates.map(date => {
+                        const run = bundle.daily.find(d => d && d.date === date);
+                        if (!run) return `<td role="gridcell" class="py-3 px-3 text-center text-sm font-mono text-slate-400">—</td>`;
+                        
+                        const color = getCellColor(run.passed, run.total);
+                        return `
+                            <td role="gridcell" class="p-1.5 text-center">
+                                <div class="py-1.5 px-2 text-sm font-mono cursor-pointer ${color.bg} ${color.text} hover:shadow-md hover:ring-2 hover:ring-blue-400 rounded-md transition-all duration-150" 
+                                     tabindex="0" 
+                                     onclick="showDetails('${area.id}', '${bundle.id}', '${date}')" 
+                                     onkeydown="handleKeyboardInteraction(event, () => showDetails('${area.id}', '${bundle.id}', '${date}'))">
+                                    ${run.passed}/${run.total}
+                                </div>
+                            </td>`;
+                    }).join('');
+                    
+                    // 2. The Bundle Row
+                    const bundleRow = `
+                        <tr role="row" class="bundle-row bg-white hover:bg-slate-50/70 transition-colors duration-150 border-b border-slate-200 group">
+                            <th scope="row" class="sticky-col py-3 px-4 pl-6 text-sm text-slate-700 whitespace-nowrap border-r border-slate-200 text-left">
+                                <button class="flex items-center gap-2 w-full" aria-expanded="${isBundleExpanded}" ${bundleHasCases ? `onclick="toggleItem('${bundle.id}')"` : 'disabled class="opacity-50"'}>
+                                    ${bundleExpandIcon}<span class="group-hover:text-blue-600">${bundle.name}</span>
+                                </button>
+                            </th>
+                            ${dailyCells}
+                            <td role="gridcell" class="py-3 px-3 text-sm font-semibold text-center whitespace-nowrap ${getPercentColor(calculateBundleSummaryPercent(bundle))}">${calculateBundleSummaryPercent(bundle)}%</td>
+                        </tr>`;
+
+                    let testCaseRows = '';
+                    if (isBundleExpanded && bundleHasCases) {
+                        // Filter test cases to only show those matching the filter
+                        const filteredTestCases = bundle.cases.filter(tc => testCaseMatchesFilter(tc));
+                        testCaseRows = filteredTestCases.map(tc => {
+                            const testCaseDailyCells = visibleDates.map(date => {
+                                const day = tc.dailyHistory.find(d => d && d.date === date);
+                                if (!day || day.total === 0) {
+                                    return `<td role="gridcell" class="py-2 px-1 text-center text-xs font-mono text-slate-400">—</td>`;
+                                }
+                                
+                                const color = getCellColor(day.passed, day.total);
+                                return `
+                                    <td role="gridcell" class="p-1 text-center">
+                                        <div class="py-1 px-2 text-xs font-mono cursor-pointer ${color.bg} ${color.text} hover:shadow-md hover:ring-2 hover:ring-blue-400 rounded-md transition-all duration-150" 
+                                             tabindex="0" 
+                                             title="${day.date}: ${day.passed}/${day.total}">
+                                            ${day.passed}/${day.total}
+                                        </div>
+                                    </td>`;
+                            }).join('');
+                            
+                            const summaryPercent = calculateTestCaseSummaryPercent(tc);
+                            
+                            // 3. The Test Case Row
+                            return `
+                                <tr role="row" class="test-case-row bg-white hover:bg-slate-50/70 transition-colors duration-150">
+                                    <th scope="row" class="sticky-col py-2 px-4 pl-16 text-xs text-slate-500 whitespace-nowrap border-r border-slate-200 text-left">
+                                        <span class="font-mono">${tc.name}</span>
+                                    </th>
+                                    ${testCaseDailyCells}
+                                    <td role="gridcell" class="py-2 px-3 text-xs font-semibold text-center whitespace-nowrap ${getPercentColor(summaryPercent)}">${summaryPercent}%</td>
+                                </tr>`;
+                        }).join('');
+                    }
+                    return bundleRow + testCaseRows;
+                }).join('');
+            }
+            return areaRow + bundleRows;
+        }).join('');
+
+        const showRunInfo = state.runId && state.runId !== 'All';
+        
+        return `
+            <main class="p-6 space-y-8">
+                ${showRunInfo ? renderRunInfoSection() : ''}
+
+                <!-- Tests Section -->
+                <section id="tests-section">
+                    <div class="mb-4">
+                        <h2 class="text-xl font-bold text-slate-900">Tests</h2>
+                        <p class="text-sm text-slate-500 mt-1">Test trends across bundles and areas</p>
+                    </div>
+                    <div class="mb-4">
+                        <div class="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                            <input type="text" id="text-filter" oninput="handleFilterChange(event)" name="textFilter" placeholder="Filter test cases..." value="${state.textFilter}" class="min-w-[200px] w-64 pl-2 pr-8 py-2 text-base border border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm" />
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto border border-slate-200 rounded-lg shadow-sm bg-white">
+                        <table role="grid" class="min-w-full">
+                            <thead class="bg-slate-100 sticky-header border-b border-slate-300">
+                                <tr role="row">
+                                    <th scope="col" class="sticky-col py-3 px-4 text-xs font-medium text-slate-500 uppercase tracking-wider text-left bg-slate-100 border-r border-slate-200">Area / Bundle / Test Case</th>
+                                    ${tableHeaders}
+                                    <th scope="col" class="py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wider text-center whitespace-nowrap">Summary%</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200">
+                                ${tableRows}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </main>`;
+    }
+    
+    function renderDetailsPanel() {
+        if (!state.detailView) return '';
+        const { suite, area, bundle, run } = getRunDetails(state.detailView.areaId, state.detailView.bundleId, state.detailView.date);
+        
+        if (!run) {
+            hideDetails();
+            return '';
+        }
+
+        const SectionHeader = (icon, title) => `
+            <div class="sticky top-0 z-10 flex items-center gap-3 p-4 bg-slate-100 border-b border-slate-200">
+                <div class="flex-shrink-0">${icon}</div>
+                <h3 class="text-md font-semibold text-slate-800">${title}</h3>
+            </div>`;
+        
+        // -- Logic: Build Test Cases List --
+        const testCasesHTML = bundle.cases && bundle.cases.length > 0 ? bundle.cases.map(tc => {
+            const flakyBadge = tc.flaky ? `<span class="text-yellow-500 text-xl" title="Flaky Test">⚡</span>` : '';
+            
+            const failureInfo = tc.failures > 0 
+                ? `<span class="text-xs text-red-600">${tc.failures} failures | Last: ${tc.lastFailDate}</span>` 
+                : `<span class="text-xs text-green-600">✓ No recent failures</span>`;
+            
+            const jiraLink = tc.jiraTicket 
+                ? `<a href="#" class="text-blue-600 hover:underline font-mono text-xs">${tc.jiraTicket}</a>` 
+                : '';
+            
+            const errorAssertion = tc.errorAssertion 
+                ? `<div class="mt-2 p-3 bg-red-50 border border-red-200 rounded-md text-xs text-red-800 font-mono leading-relaxed">${tc.errorAssertion}</div>` 
+                : '';
+            
+            const targets = tc.targetsCovered 
+                ? `<div class="mt-2 text-xs text-slate-500"><strong>Targets:</strong> <span class="font-mono">${tc.targetsCovered.join(', ')}</span></div>` 
+                : '';
+
+            return `
+                <details class="group border-b border-slate-200 last:border-b-0">
+                    <summary class="flex items-center justify-between cursor-pointer p-4 hover:bg-slate-50 transition-colors duration-150">
+                        <div class="flex items-center gap-3">
+                            <div class="flex-shrink-0 w-5 text-center">${flakyBadge}</div>
+                            <span class="font-mono text-sm text-slate-800">${tc.name}</span>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            ${failureInfo} ${jiraLink} ${ICONS.chevronDown}
+                        </div>
+                    </summary>
+                    <div class="px-4 pb-4 pl-12 bg-white">
+                        ${errorAssertion}
+                        ${targets}
+                    </div>
+                </details>`;
+        }).join('') : `<div class="p-6 text-center text-sm text-slate-500">No individual test cases tracked at this level.</div>`;
+
+        // -- Logic: Build Coverage Section --
+        let coverageHTML = '';
+        if (run.coverage) {
+            coverageHTML = `
+                <div class="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    ${['Line', 'Branch', 'Function'].map(type => `
+                        <div class="p-4 bg-slate-50 rounded-lg border border-slate-200 text-center">
+                            <div class="text-3xl font-bold text-blue-600">${run.coverage[`${type.toLowerCase()}Coverage`]}%</div>
+                            <div class="text-xs text-slate-500 uppercase tracking-wider mt-1">${type} Coverage</div>
+                        </div>`).join('')}
+                </div>
+                <p class="px-6 pb-4 text-xs text-slate-500 text-center italic">Note: Coverage is a bundle-level aggregate and is only available when tests pass.</p>`;
+        } else {
+            coverageHTML = `<div class="p-6"><div class="p-4 bg-slate-50 rounded-lg border border-slate-200 text-center text-sm text-slate-600">Coverage data is unavailable for this run. This is expected if tests have failed.</div></div>`;
+        }
+
+        // -- Logic: Build Jira & Metadata --
+        const linkedTickets = bundle.cases.filter(c => c.jiraTicket).map(c => c.jiraTicket);
+        const jiraTicketsHTML = linkedTickets.length > 0 
+            ? linkedTickets.map(ticket => `
+                <a href="#" class="flex items-center justify-between p-3 hover:bg-slate-100 rounded-md transition-colors duration-150">
+                    <span class="font-mono text-sm text-blue-600">${ticket}</span>
+                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">In Progress</span>
+                </a>`).join('') 
+            : `<p class="text-sm text-slate-500 text-center p-4">No open JIRA tickets for this run.</p>`;
+            
+        const metadataItem = (label, value) => `
+            <div class="flex flex-col">
+                <dt class="text-xs text-slate-500">${label}</dt>
+                <dd class="text-sm text-slate-800 mt-1">${value}</dd>
+            </div>`;
+
+        return `
+            <div id="details-panel-container" class="fixed inset-0 bg-slate-900/40 z-40 flex justify-end" onclick="handleClickOutsidePanel(event)">
+                <div id="details-panel" role="dialog" aria-modal="true" aria-labelledby="details-panel-title" class="w-full max-w-4xl h-full bg-white shadow-2xl flex flex-col transform translate-x-0">
+                    <header class="p-4 border-b border-slate-200 bg-slate-50/80 backdrop-blur-sm flex-shrink-0 sticky top-0 z-20">
+                        <div class="flex items-start justify-between">
+                            <div class="text-sm text-slate-500">
+                                <span id="details-panel-title" class="font-semibold text-slate-800 block text-lg mt-1">${bundle.name} on ${run.date}</span>
+                                <span class="cursor-pointer hover:underline" onclick="hideDetails()">${suite.name}</span> &rsaquo; ${area.name}
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button aria-label="Retrigger Run" onclick="retriggerRun()" title="Retrigger Run" class="p-2 text-slate-500 hover:bg-slate-200 rounded-full transition-colors duration-150">${ICONS.retrigger}</button>
+                                <button aria-label="Close details panel" onclick="hideDetails()" title="Close" class="p-2 text-slate-500 hover:bg-slate-200 rounded-full transition-colors duration-150">${ICONS.close}</button>
+                            </div>
+                        </div>
+                        <dl class="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-4 font-mono text-xs">
+                            ${metadataItem("Owner", area.owner)} 
+                            ${metadataItem("Branch", state.branch)} 
+                            ${metadataItem("Commit", run.commit)}
+                            ${metadataItem("Arch", run.architecture)} 
+                            ${metadataItem("K8s", run.k8sProvider)} 
+                            ${metadataItem("Node", run.nodeType)}
+                            ${metadataItem("Duration", run.duration)} 
+                            ${metadataItem("Run ID", run.runId)}
+                        </dl>
+                    </header>
+                    <div class="flex-grow overflow-y-auto">
+                        <div>
+                            ${SectionHeader(ICONS.clipboardList, `Test Cases (${bundle.cases.length})`)}
+                            ${testCasesHTML}
+                        </div>
+                        <div>
+                            ${SectionHeader(ICONS.chartBar, 'Bundle-Level Code Coverage')}
+                            ${coverageHTML}
+                        </div>
+                        <div>
+                            ${SectionHeader(ICONS.link, 'Artifacts & Links')}
+                            <div class="p-6 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                                <a href="#" class="text-blue-600 hover:underline">View Full Logs</a>
+                                <a href="#" class="text-blue-600 hover:underline">View in BuildBuddy</a>
+                                ${run.coverage ? `<a href="${run.coverage.reportUrl}" class="text-blue-600 hover:underline">View Coverage Report</a>` : ''}
+                                <a href="#" class="text-blue-600 hover:underline">GitHub Actions Run</a>
+                            </div>
+                        </div>
+                        <div>
+                            ${SectionHeader(ICONS.jira, 'JIRA Integration')}
+                            <div class="p-4">
+                                <div class="space-y-2 mb-4">${jiraTicketsHTML}</div>
+                                <button onclick="createJiraTicket()" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    ${ICONS.plus} Create JIRA Ticket
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+    }
+    
+    function renderSuiteSelector() {
+        const buttons = Object.values(masterData).map(suite => {
+            const activeClass = suite.id === state.selectedSuiteId ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-700 hover:bg-slate-100 shadow';
+            return `<button onclick="selectSuite('${suite.id}')" class="px-4 py-2 rounded-md text-sm font-medium transition-all duration-150 ${activeClass}">${suite.name}</button>`;
+        }).join('');
+        return `<div class="fixed bottom-6 right-6 z-50 p-2 bg-white/70 backdrop-blur-sm rounded-lg shadow-xl border border-slate-200/50"><div class="flex items-center gap-2">${buttons}</div></div>`;
+    }
+    
+    function renderApp() {
+        // Preserve focus and cursor position for text filter
+        const textFilterInput = document.getElementById('text-filter');
+        let shouldRestoreFocus = false;
+        let cursorPosition = 0;
+        if (textFilterInput && document.activeElement === textFilterInput) {
+            shouldRestoreFocus = true;
+            cursorPosition = textFilterInput.selectionStart || 0;
+        }
+        
+        document.getElementById('app').innerHTML = `
+            ${renderHeader()}
+            ${renderGrid()}
+            ${state.detailView ? renderDetailsPanel() : ''}
+            ${renderSuiteSelector()}
+        `;
+        document.title = getSuiteById(state.selectedSuiteId).name;
+        
+        // Restore focus and cursor position
+        if (shouldRestoreFocus) {
+            const newTextFilterInput = document.getElementById('text-filter');
+            if (newTextFilterInput) {
+                newTextFilterInput.focus();
+                newTextFilterInput.setSelectionRange(cursorPosition, cursorPosition);
+            }
+        }
+    }
+
+    // =================================================================================
+    // 6. EVENT HANDLERS & ACTIONS
+    // =================================================================================
+    
+    function handleKeyboardInteraction(event, action) {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            action();
+        }
+    }
+    
+    function toggleItem(itemId) {
+        state.expandedItems.has(itemId) ? state.expandedItems.delete(itemId) : state.expandedItems.add(itemId);
+        renderApp();
+    }
+    
+    function showDetails(areaId, bundleId, date) {
+        state.detailView = { areaId, bundleId, date };
+        renderApp();
+    }
+    
+    function hideDetails() {
+        const panelContainer = document.getElementById('details-panel-container');
+        const panel = document.getElementById('details-panel');
+        
+        if (panelContainer && panel) {
+            panelContainer.classList.add('opacity-0');
+            panel.classList.add('translate-x-full');
+            setTimeout(() => {
+                state.detailView = null;
+                renderApp();
+            }, 300);
+        } else {
+            state.detailView = null;
+            renderApp();
+        }
+    }
+    
+    function handleClickOutsidePanel(event) {
+        if (event.target.id === 'details-panel-container') hideDetails();
+    }
+    
+    function selectSuite(suiteId) {
+        state.selectedSuiteId = suiteId;
+        const suite = getSuiteById(suiteId);
+        state.expandedItems.clear();
+        state.detailView = null;
+        state.branch = suite.branches[0];
+        state.architecture = suite.architectures[0];
+        renderApp();
+    }
+    
+    function handleFilterChange(event) {
+        state[event.target.name] = event.target.value;
+        renderApp();
+    }
+    
+    function handleDateChange(event) {
+        const dateValue = event.target.value;
+        const parsedDate = parseDateFromInput(dateValue);
+        
+        if (event.target.name === 'startDate') {
+            // Ensure start date is not after end date
+            if (parsedDate > state.endDate) {
+                showToast('Start date cannot be after end date');
+                event.target.value = formatDateForInput(state.startDate);
+                return;
+            }
+            state.startDate = parsedDate;
+        } else if (event.target.name === 'endDate') {
+            // Ensure end date is not before start date
+            if (parsedDate < state.startDate) {
+                showToast('End date cannot be before start date');
+                event.target.value = formatDateForInput(state.endDate);
+                return;
+            }
+            state.endDate = parsedDate;
+        }
+        
+        renderApp();
+    }
+    
+    function updateURLWithRunId(runId) {
+        const url = new URL(window.location);
+        if (runId && runId !== 'All') {
+            url.searchParams.set('runId', runId);
+        } else {
+            url.searchParams.delete('runId');
+        }
+        // Also clear fragment identifier if it was used
+        if (url.hash) {
+            url.hash = '';
+        }
+        // Update URL without reloading the page
+        window.history.replaceState({}, '', url);
+    }
+    
+    function handleRunIdChange(event) {
+        const selectedRunId = event.target.value;
+        state.runId = selectedRunId;
+        
+        // Update URL to reflect the selected RunID
+        updateURLWithRunId(selectedRunId);
+        
+        // Automatically select branch: master or private
+        // Use runId to deterministically choose (so same run always gets same branch)
+        if (selectedRunId !== 'All' && selectedRunId) {
+            const runIdNum = parseInt(selectedRunId) || 0;
+            const branchChoice = runIdNum % 2 === 0 ? 'master' : 'private';
+            const suite = getSuiteById(state.selectedSuiteId);
+            // Ensure the branch exists in the suite's available branches
+            if (suite.branches.includes(branchChoice)) {
+                state.branch = branchChoice;
+            } else if (suite.branches.includes('master')) {
+                state.branch = 'master';
+            } else if (suite.branches.includes('private')) {
+                state.branch = 'private';
+            }
+        }
+        
+        renderApp();
+    }
+    
+    function retriggerRun() {
+        showToast("Run retriggered successfully!");
+    }
+    
+    function createJiraTicket() {
+        showToast("Opening JIRA creation form...");
+    }
+    
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('SHA256 copied to clipboard');
+        }).catch(() => {
+            showToast('Failed to copy to clipboard');
+        });
+    }
+    
+    // =================================================================================
+    // 7. INITIALIZATION
+    // =================================================================================
+    
+    function parseRunIdFromURL() {
+        let runId = null;
+        
+        // For file:// protocol, window.location.search might be empty
+        // So we need to manually parse the full href
+        const fullUrl = window.location.href;
+        
+        // Try standard URLSearchParams first (works for http/https)
+        if (window.location.search) {
+            const urlParams = new URLSearchParams(window.location.search);
+            runId = urlParams.get('runId');
+        }
+        
+        // Fallback: manually parse query string from full URL
+        // (needed for file:// protocol where search might be empty)
+        if (!runId && fullUrl.includes('?')) {
+            const queryString = fullUrl.split('?')[1].split('#')[0];
+            // Try URLSearchParams first
+            try {
+                const urlParams = new URLSearchParams(queryString);
+                runId = urlParams.get('runId');
+            } catch (e) {
+                // If URLSearchParams fails, manually parse
+                const params = queryString.split('&');
+                for (const param of params) {
+                    const [key, value] = param.split('=');
+                    if (key === 'runId' && value) {
+                        runId = decodeURIComponent(value);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // If not found in query params, check fragment identifier
+        // (e.g., #runId=19527000470 or #19527000470)
+        if (!runId && window.location.hash) {
+            const hash = window.location.hash.substring(1); // Remove the '#'
+            
+            // Try parsing as key=value format
+            const hashParams = new URLSearchParams(hash);
+            runId = hashParams.get('runId');
+            
+            // If not in key=value format, treat entire hash as RunID
+            // (e.g., #19527000470)
+            if (!runId && hash && /^\d+$/.test(hash)) {
+                runId = hash;
+            }
+        }
+        
+        // Validate and accept any valid numeric RunID from URL
+        // (GitHub Actions run IDs are large numbers, typically 10+ digits)
+        if (runId && runId !== 'All') {
+            // Check if it's a valid numeric RunID format
+            if (/^\d+$/.test(runId) && runId.length >= 10) {
+                // Add to availableRunIds if not already present
+                if (!availableRunIds.includes(runId)) {
+                    availableRunIds.push(runId);
+                    // Keep sorted descending
+                    availableRunIds.sort((a, b) => parseInt(b) - parseInt(a));
+                }
+                return runId;
+            } else {
+                console.warn(`RunID ${runId} is not a valid format. Using "All" instead.`);
+                return "All";
+            }
+        }
+        
+        return runId || "All";
+    }
+    
+    function loadTestsTreeJson() {
+        try {
+            // Check if data was already loaded via script tag (works with file://)
+            if (typeof window.testsTreeJson !== 'undefined' && window.testsTreeJson !== null) {
+                testsTreeJson = window.testsTreeJson;
+                return Promise.resolve(testsTreeJson);
+            }
+            
+            // Fallback: Try fetch (works with http/https)
+            if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+                return fetch('tests_tree.json')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`Failed to load tests_tree.json: ${response.status} ${response.statusText}`);
+                        }
+                        return response.json();
+                    })
+                    .then(json => {
+                        testsTreeJson = json;
+                        return testsTreeJson;
+                    });
+            }
+            
+            // Fallback: For file:// protocol, try synchronous XMLHttpRequest
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', 'tests_tree.json', false); // synchronous
+            xhr.send(null);
+            
+            if (xhr.status === 200 || xhr.status === 0) { // 0 for file://
+                testsTreeJson = JSON.parse(xhr.responseText);
+                return Promise.resolve(testsTreeJson);
+            } else {
+                throw new Error(`Failed to load tests_tree.json: HTTP ${xhr.status}. Please ensure tests_tree.js exists in the same directory.`);
+            }
+        } catch (error) {
+            console.error('Error loading tests_tree.json:', error);
+            document.getElementById('app').innerHTML = `
+                <div class="p-6">
+                    <div class="text-center py-16 px-6 bg-white border border-red-200 rounded-lg shadow-sm">
+                        <h3 class="text-lg font-semibold text-red-700">Failed to Load Test Data</h3>
+                        <p class="mt-2 text-sm text-red-500">Error: ${error.message}</p>
+                        <p class="mt-2 text-sm text-slate-500">Please ensure tests_tree.js is in the same directory as this HTML file.</p>
+                        <p class="mt-2 text-xs text-slate-400">Note: tests_tree.js is generated from tests_tree.json and is required for file:// protocol access.</p>
+                    </div>
+                </div>`;
+            throw error;
+        }
+    }
+    
+    function initializeApp() {
+        // Build master data from loaded JSON
+        masterData = buildMasterDataFromJSON();
+        
+        // Hydrate test case history
+        Object.values(masterData).forEach(suite => {
+            suite.areas.forEach(area => {
+                area.bundles.forEach(bundle => {
+                    if (bundle.cases) {
+                        bundle.cases.forEach(tc => tc.dailyHistory = generateTestCaseHistory(tc));
+                    }
+                });
+            });
+        });
+        
+        // Initialize state after masterData is built
+        const defaultEndDate = new Date();
+        defaultEndDate.setHours(0, 0, 0, 0);
+        const defaultStartDate = new Date(defaultEndDate);
+        defaultStartDate.setDate(defaultStartDate.getDate() - 13); // 14 days total
+        
+        // Parse RunID from URL (query parameter or fragment identifier)
+        const urlRunId = parseRunIdFromURL();
+        
+        state = {
+            selectedSuiteId: "multi-arch",
+            startDate: defaultStartDate,
+            endDate: defaultEndDate,
+            branch: "master",
+            architecture: "all",
+            textFilter: "",
+            runId: urlRunId,
+            expandedItems: new Set(),
+            detailView: null
+        };
+        
+        // If RunID is specified in URL, automatically select branch
+        // (same logic as handleRunIdChange)
+        if (urlRunId !== 'All' && urlRunId) {
+            const runIdNum = parseInt(urlRunId) || 0;
+            const branchChoice = runIdNum % 2 === 0 ? 'master' : 'private';
+            const suite = getSuiteById(state.selectedSuiteId);
+            // Ensure the branch exists in the suite's available branches
+            if (suite.branches.includes(branchChoice)) {
+                state.branch = branchChoice;
+            } else if (suite.branches.includes('master')) {
+                state.branch = 'master';
+            } else if (suite.branches.includes('private')) {
+                state.branch = 'private';
+            }
+        }
+        
+        // Expand first area by default after data is loaded
+        if (masterData["multi-arch"] && masterData["multi-arch"].areas.length > 0) {
+            const firstArea = masterData["multi-arch"].areas[0];
+            state.expandedItems.add(firstArea.id);
+            // Also expand first bundle in first area if it exists
+            if (firstArea.bundles.length > 0) {
+                state.expandedItems.add(firstArea.bundles[0].id);
+            }
+        }
+        
+        // Render the app
+        renderApp();
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        try {
+            const testsResult = loadTestsTreeJson();
+            
+            // Handle both Promise (async) and direct value (sync) for tests
+            const testsPromise = testsResult instanceof Promise ? testsResult : Promise.resolve(testsResult);
+            
+            // Wait for tests to load before initializing
+            testsPromise.then(() => {
+                initializeApp();
+            }).catch(error => {
+                // Error already handled in load function
+            });
+        } catch (error) {
+            // Error already handled in load function
+        }
+    });
+    </script>
+</body>
+</html>

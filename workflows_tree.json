@@ -1,0 +1,31 @@
+{
+  "Add Approver Names to Commit Message": [],
+  "Auto-approve experimental changes": [],
+  "Build and Push to Google Artifact Registry": [],
+  "Check line length and BOM": [],
+  "Cleanup Stale Dev Branches": [],
+  "Cloudsetup CI Deprovisioning": [
+    "Delete SciFin Microservices",
+    "Deprovision Cloud Resources",
+    "Send Notification"
+  ],
+  "Cloudsetup CI Provisioning & Init": [
+    "Deploy SciFin Microservices",
+    "Display Deployment Summary",
+    "Generate Diagnostic Bundle",
+    "Provision Cloud Resources",
+    "Run Unicluster Tests on GKE",
+    "Send Notification",
+    "Setup SciFin Application"
+  ],
+  "Force Cleanup Resources": [],
+  "Get Healthy Clusters": [],
+  "Get Tenant Config": [],
+  "Multi-architecture Test Suite": [
+    "Send Notification",
+    "Test Matrix Runner"
+  ],
+  "Pre-Merge Smoke Test": [
+    "Test Matrix Runner"
+  ]
+}
